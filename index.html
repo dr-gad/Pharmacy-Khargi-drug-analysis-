@@ -7,11 +7,676 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>/* full styles loaded from local - TEMP STUB */ body{font-family:sans-serif;padding:2rem;direction:rtl} .ok{color:green;font-weight:bold}</style>
+  <style>
+    :root {
+      --primary: #0d9488; --primary-dark: #0f766e; --primary-light: #ccfbf1;
+      --card: #fff; --text: #134e4a; --muted: #64748b; --border: #99f6e4;
+      --danger: #e11d48; --shadow: 0 4px 20px rgba(13,148,136,.12); --radius: 16px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
+      background: linear-gradient(160deg, #f0fdfa 0%, #ecfeff 40%, #f8fafc 100%);
+      color: var(--text); line-height: 1.6; min-height: 100vh;
+    }
+    .header {
+      background: linear-gradient(135deg, #0f766e, #0d9488 50%, #14b8a6);
+      color: #fff; padding: .7rem .7rem .8rem;
+      box-shadow: 0 4px 24px rgba(15,118,110,.35); position: sticky; top: 0; z-index: 100;
+    }
+    .header h1 { font-size: 1.35rem; font-weight: 700; }
+    .header p { font-size: .8rem; opacity: .88; margin-top: .2rem; }
+    .container { max-width: 100%; margin: 0; padding: .45rem .35rem 1.4rem; }
+
+    .tabs {
+      display: flex; gap: .4rem; margin-bottom: 1.2rem;
+      background: var(--card); padding: .35rem; border-radius: 14px;
+      box-shadow: var(--shadow); border: 1px solid var(--border);
+    }
+    .tab-btn {
+      flex: 1; padding: .7rem .8rem; border: none; background: transparent;
+      border-radius: 10px; font-size: .95rem; font-weight: 600; font-family: inherit;
+      cursor: pointer; color: var(--muted); transition: all .2s;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, #0f766e, #0d9488); color: #fff;
+      box-shadow: 0 3px 12px rgba(13,148,136,.4);
+    }
+
+    .card {
+      background: var(--card); border-radius: 12px; padding: .55rem .4rem .7rem;
+      margin-bottom: .7rem; box-shadow: var(--shadow); border: 1px solid rgba(153,246,228,.6);
+    }
+    .card-title {
+      font-size: 1.05rem; font-weight: 700; margin-bottom: 1.1rem;
+      display: flex; align-items: center; gap: .5rem; color: var(--primary-dark);
+    }
+    .card-title .icon {
+      width: 32px; height: 32px; background: var(--primary-light); border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; font-size: 1rem;
+    }
+
+    .controls {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: .9rem; align-items: end;
+    }
+    .form-group label {
+      display: block; font-size: .75rem; font-weight: 600; color: var(--muted); margin-bottom: .35rem;
+    }
+    select, .search-input {
+      width: 100%; padding: .7rem 1rem; border: 1.5px solid #e2e8f0;
+      border-radius: 12px; font-size: .92rem; font-family: inherit; font-weight: 500;
+      background: #fff; color: var(--text);
+      transition: border-color .15s, box-shadow .15s; box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    }
+    select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%230d9488' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: left .9rem center; padding-left: 2.4rem;
+    }
+    select:hover, .search-input:hover { border-color: #5eead4; background: #f0fdfa; }
+    select:focus, .search-input:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(13,148,136,.18); background: #fff;
+    }
+
+    /* Mode pills */
+    .mode-pills {
+      display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .9rem;
+    }
+    .mode-pill {
+      padding: .4rem .85rem; border-radius: 20px; border: 1.5px solid #e2e8f0;
+      background: #f8fafc; font-size: .82rem; font-weight: 600; font-family: inherit;
+      cursor: pointer; color: var(--muted); transition: all .15s;
+    }
+    .mode-pill.active {
+      background: linear-gradient(135deg, #0f766e, #0d9488); color: #fff;
+      border-color: transparent; box-shadow: 0 2px 8px rgba(13,148,136,.3);
+    }
+
+    /* Checkbox grid for months/days */
+    .check-grid {
+      display: none; flex-wrap: wrap; gap: .4rem; margin: .5rem 0 1rem;
+      padding: .8rem; background: #f0fdfa; border-radius: 12px; border: 1px solid #99f6e4;
+    }
+    .check-grid.show { display: flex; }
+    .check-item {
+      display: inline-flex; align-items: center; gap: .3rem;
+      padding: .3rem .55rem; border-radius: 8px; background: #fff;
+      border: 1px solid #e2e8f0; font-size: .8rem; font-weight: 600;
+      cursor: pointer; user-select: none; transition: all .12s;
+    }
+    .check-item:hover { border-color: #5eead4; }
+    .check-item input { accent-color: #0d9488; width: 14px; height: 14px; cursor: pointer; }
+    .check-item.checked { background: #ccfbf1; border-color: #0d9488; color: #0f766e; }
+    .check-actions { width: 100%; display: flex; gap: .5rem; margin-top: .3rem; }
+    .check-actions button {
+      font-size: .75rem; padding: .25rem .6rem; border-radius: 6px;
+      border: 1px solid #99f6e4; background: #fff; color: #0f766e;
+      font-family: inherit; font-weight: 600; cursor: pointer;
+    }
+
+    /* Searchable select */
+    .search-wrap { position: relative; }
+    .search-wrap .search-input { padding-right: 2.2rem; }
+    .search-wrap .search-icon {
+      position: absolute; right: .75rem; top: 50%; transform: translateY(-50%);
+      color: var(--muted); font-size: .9rem; pointer-events: none;
+    }
+    .search-dropdown {
+      display: none; position: absolute; top: 100%; right: 0; left: 0; z-index: 60;
+      max-height: min(55vh, 420px); overflow-y: auto; background: #fff;
+      border: 1.5px solid #99f6e4; border-radius: 12px; margin-top: 4px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.12);
+    }
+    .search-dropdown.show { display: block; }
+
+    /* Custom select (same look as item list) */
+    .cselect { position: relative; width: 100%; }
+    .cselect-trigger {
+      width: 100%; padding: .7rem 1rem; border: 1.5px solid #e2e8f0;
+      border-radius: 12px; font-size: .92rem; font-family: inherit; font-weight: 500;
+      background: #fff; color: var(--text); cursor: pointer; text-align: right;
+      display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.04); transition: border-color .15s, box-shadow .15s;
+      min-height: 46px;
+    }
+    .cselect-trigger:hover { border-color: #5eead4; background: #f0fdfa; }
+    .cselect.open .cselect-trigger {
+      border-color: var(--primary); box-shadow: 0 0 0 3px rgba(13,148,136,.18);
+    }
+    .cselect-trigger .cs-arrow {
+      color: #0d9488; font-size: .75rem; transition: transform .15s; flex-shrink: 0;
+    }
+    .cselect.open .cselect-trigger .cs-arrow { transform: rotate(180deg); }
+    .cselect-trigger .cs-val { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cselect-menu {
+      display: none; position: absolute; top: calc(100% + 4px); right: 0; left: 0; z-index: 70;
+      max-height: min(50vh, 360px); overflow-y: auto; background: #fff;
+      border: 1.5px solid #99f6e4; border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.12);
+    }
+    .cselect.open .cselect-menu { display: block; }
+    .cselect-opt {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: .65rem .9rem; font-size: .88rem; font-weight: 600; cursor: pointer;
+      border-bottom: 1px solid #e2e8f0; color: #134e4a; transition: background .1s;
+    }
+    .cselect-opt:last-child { border-bottom: none; }
+    .cselect-opt:hover, .cselect-opt.active { background: #f0fdfa; color: #0f766e; }
+    .cselect-opt.selected { background: #ccfbf1; color: #0f766e; }
+    select.cselect-native { position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; }
+    .search-option:hover, .search-option.hl { background: #f0fdfa; }
+
+    .search-empty { padding: .8rem; text-align: center; color: var(--muted); font-size: .85rem; }
+
+    .file-wrap { position: relative; width: 100%; }
+    .file-wrap input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; z-index: 2;
+    }
+    .file-btn {
+      display: flex; align-items: center; justify-content: center; gap: .45rem; width: 100%;
+      padding: .7rem .9rem; min-height: 46px;
+      border: 1.5px dashed #99f6e4; border-radius: 12px;
+      background: linear-gradient(135deg, #f0fdfa, #ecfdf5);
+      color: var(--primary-dark); font-size: .88rem; font-weight: 600; font-family: inherit;
+      transition: border-color .15s, background .15s;
+    }
+    .file-wrap:hover .file-btn { border-color: var(--primary); background: #ccfbf1; }
+    .file-label-row {
+      display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+      margin-bottom: .35rem; min-height: 1.4rem;
+    }
+    .file-label-row > span.label-text {
+      font-size: .75rem; font-weight: 600; color: var(--muted);
+    }
+    .file-pill {
+      display: inline-flex; align-items: center; gap: .3rem; max-width: 70%;
+      padding: .2rem .55rem; border-radius: 20px; font-size: .72rem; font-weight: 600;
+      background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: ltr;
+    }
+    .file-pill.has-file {
+      background: #d1fae5; color: #065f46; border-color: #6ee7b7; direction: rtl;
+    }
+
+    .btn {
+      padding: .65rem 1.15rem; border: none; border-radius: 10px; font-weight: 600;
+      font-size: .9rem; font-family: inherit; cursor: pointer; transition: all .18s;
+      display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #0f766e, #0d9488); color: #fff;
+      box-shadow: 0 3px 12px rgba(13,148,136,.35);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 5px 18px rgba(13,148,136,.45); }
+    .btn-danger {
+      background: #fff1f2; color: var(--danger); border: 1px solid #fecdd3;
+      padding: .35rem .7rem; font-size: .8rem; border-radius: 8px;
+    }
+    .btn-ghost { background: #f1f5f9; color: var(--muted); border: 1px solid #e2e8f0; }
+    .btn-danger-solid { background: var(--danger); color: #fff; border: none; }
+
+    .upload-success {
+      display: none; margin-top: .75rem; padding: .65rem 1rem;
+      background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7;
+      border-radius: 10px; font-size: .88rem; font-weight: 600;
+    }
+    .upload-success.show { display: block; }
+
+    .status-list { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: 1.1rem; align-items: center; }
+    .day-chip {
+      display: inline-flex; align-items: center; gap: .25rem;
+      padding: .3rem .5rem; border-radius: 20px; font-size: .78rem; font-weight: 600;
+      background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0;
+      min-width: 2.2rem; justify-content: center;
+    }
+    .day-chip.uploaded { background: #d1fae5; color: #065f46; border-color: #6ee7b7; padding-left: .35rem; }
+    .day-chip .trash-btn {
+      cursor: pointer; background: none; border: none; color: #e11d48;
+      font-size: .95rem; padding: 0 .1rem; line-height: 1;
+    }
+    .month-badge {
+      display: inline-flex; align-items: center; gap: .45rem;
+      padding: .4rem .9rem; border-radius: 20px; font-size: .85rem; font-weight: 600;
+      background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #065f46; border: 1px solid #6ee7b7;
+    }
+
+    .summary-cards {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: .85rem; margin-bottom: 1.3rem;
+    }
+    .summary-card {
+      background: linear-gradient(145deg, #f0fdfa, #ccfbf1);
+      border: 1px solid #99f6e4; border-radius: 14px; padding: 1rem .9rem; text-align: center;
+    }
+    .summary-card .lbl { font-size: .72rem; font-weight: 600; color: var(--muted); margin-bottom: .35rem; }
+    .summary-card .val { font-size: 1.55rem; font-weight: 700; color: var(--primary-dark); font-variant-numeric: tabular-nums; }
+    .summary-card .note { font-size: .68rem; color: #0f766e; margin-top: .3rem; opacity: .85; }
+
+    .charts-grid { display: grid; grid-template-columns: 1fr; gap: 1.2rem; width: 100%; }
+    @media (min-width: 820px) { .charts-grid { grid-template-columns: 1fr 1fr; } }
+    .chart-box {
+      background: linear-gradient(180deg, #fff, #f8fafc);
+      border-radius: 14px; padding: 1.1rem; border: 1px solid #e2e8f0;
+      min-height: 280px; box-shadow: 0 2px 10px rgba(0,0,0,.04);
+      overflow: hidden; width: 100%;
+    }
+    .chart-box.full { grid-column: 1 / -1; }
+    .chart-head {
+      display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .7rem;
+    }
+    .chart-head h3 {
+      font-size: .92rem; font-weight: 700; color: var(--primary-dark);
+      display: flex; align-items: center; gap: .4rem; margin: 0; flex: 1;
+    }
+    .chart-head h3::before {
+      content: ''; width: 4px; height: 16px; background: var(--primary); border-radius: 2px;
+    }
+    .chart-scroll {
+      overflow-x: auto; overflow-y: hidden; width: 100%; -webkit-overflow-scrolling: touch;
+    }
+    .chart-scroll::-webkit-scrollbar { height: 6px; }
+    .chart-scroll::-webkit-scrollbar-thumb { background: #99f6e4; border-radius: 3px; }
+
+    .btn-mini {
+      background: #fff; border: 1.5px solid #99f6e4; color: #0f766e;
+      border-radius: 8px; padding: .3rem .55rem; font-size: .78rem;
+      font-weight: 600; font-family: inherit; cursor: pointer;
+      display: inline-flex; align-items: center; gap: .25rem; white-space: nowrap;
+    }
+    .btn-mini:hover { background: #ccfbf1; }
+
+    .table-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin: .8rem 0 .4rem; padding: 0 .1rem;
+    }
+    .table-title { font-size: .88rem; font-weight: 700; color: #0f766e; }
+    .table-wrap {
+      overflow-x: auto; margin-top: .4rem; border-radius: 14px;
+      border: 1px solid #e2e8f0; box-shadow: 0 2px 10px rgba(0,0,0,.04);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    th {
+      background: linear-gradient(180deg, #f0fdfa, #ecfdf5); font-weight: 700;
+      color: var(--primary-dark); padding: .75rem .9rem; text-align: right;
+      border-bottom: 2px solid #99f6e4; white-space: nowrap;
+    }
+    td { padding: .65rem .9rem; text-align: right; border-bottom: 1px solid #f1f5f9; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f0fdfa; }
+    td code {
+      background: #f1f5f9; padding: .15rem .45rem; border-radius: 6px;
+      font-size: .8rem; color: #0f766e; font-weight: 600;
+    }
+    .qty-cell { font-weight: 700; color: var(--primary-dark); font-variant-numeric: tabular-nums; }
+    .pct-cell { color: var(--muted); font-size: .82rem; font-weight: 600; }
+    .zero-row td { color: #94a3b8; }
+
+    .empty-state { text-align: center; padding: 3rem 1rem; color: var(--muted); grid-column: 1 / -1; }
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: .6rem; opacity: .5; }
+
+    .msg {
+      padding: .8rem 1.1rem; border-radius: 12px; margin-bottom: 1rem;
+      font-size: .88rem; font-weight: 500; display: none;
+    }
+    .msg.show { display: block; }
+    .msg-success { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+    .msg-error { background: #ffe4e6; color: #9f1239; border: 1px solid #fecdd3; }
+    .msg-info { background: #e0f2fe; color: #075985; border: 1px solid #7dd3fc; }
+
+    .single-item-view {
+      background: linear-gradient(145deg, #f0fdfa, #ccfbf1); border: 1px solid #99f6e4;
+      border-radius: 14px; padding: 1.6rem; text-align: center; width: 100%;
+    }
+    .single-item-view .item-name { font-size: 1.15rem; font-weight: 700; color: var(--primary-dark); margin-bottom: .25rem; }
+    .single-item-view .item-code { font-size: .85rem; color: var(--muted); margin-bottom: .9rem; }
+    .single-item-view .big-qty { font-size: 2.5rem; font-weight: 800; color: var(--primary-dark); font-variant-numeric: tabular-nums; }
+    .single-item-view .qty-label { font-size: .8rem; color: var(--muted); margin-top: .15rem; }
+    .single-item-view .no-data {
+      font-size: 1.05rem; font-weight: 600; color: #b45309;
+      background: #fffbeb; border: 1px solid #fcd34d; border-radius: 10px;
+      padding: .9rem 1rem; margin-top: .5rem;
+    }
+    .pct-badge {
+      margin-top: .85rem; display: inline-block;
+      background: #fff; border: 1.5px solid #5eead4; color: #0f766e;
+      border-radius: 20px; padding: .4rem .9rem; font-size: .85rem; font-weight: 600;
+    }
+    #iResult, #gCharts, #gTable { width: 100%; max-width: 100%; overflow: hidden; }
+
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; opacity: 0; transition: opacity .2s; padding: 1rem;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.show { opacity: 1; }
+    .modal-box {
+      background: #fff; border-radius: 16px; padding: 1.5rem 1.4rem;
+      max-width: 340px; width: 100%; box-shadow: 0 20px 50px rgba(0,0,0,.2);
+      transform: scale(.95); transition: transform .2s;
+    }
+    .modal-overlay.show .modal-box { transform: scale(1); }
+    .modal-msg { font-size: 1rem; font-weight: 600; text-align: center; margin-bottom: 1.3rem; }
+    .modal-actions { display: flex; gap: .6rem; justify-content: center; }
+    .modal-actions .btn { min-width: 100px; }
+
+    .hidden { display: none !important; }
+    
+
+    .search-wrap .search-input { padding-right: 2.2rem; padding-left: 2.2rem; }
+    .search-clear {
+      position: absolute; left: .55rem; top: 50%; transform: translateY(-50%);
+      width: 26px; height: 26px; border-radius: 50%; border: none;
+      background: #fee2e2; color: #e11d48; font-size: 1.1rem; font-weight: 700;
+      cursor: pointer; display: none; align-items: center; justify-content: center;
+      line-height: 1; font-family: inherit; z-index: 2;
+    }
+    .search-clear.show { display: flex; }
+    .search-clear:hover { background: #fecaca; }
+    .chart-scroll-y {
+      overflow-x: hidden; overflow-y: auto; width: 100%; max-height: min(70vh, 520px);
+      -webkit-overflow-scrolling: touch; direction: ltr;
+    }
+    .chart-scroll-y .chart-inner { width: 100% !important; min-width: 0 !important; direction: rtl; }
+
+    .search-option {
+      display: flex; justify-content: space-between; align-items: center; gap: .5rem;
+      padding: .65rem .9rem; font-size: .88rem; cursor: pointer;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .search-option .so-name { font-weight: 600; color: #134e4a; }
+    .search-option .so-code {
+      font-size: .75rem; font-weight: 600; color: #0f766e;
+      background: #f0fdfa; padding: .15rem .45rem; border-radius: 6px;
+      border: 1px solid #99f6e4; white-space: nowrap;
+    }
+    .search-option:last-child { border-bottom: none; }
+    .day-first {
+      font-size: 1.05rem; font-weight: 700; color: #0f766e;
+      background: #fff; border: 1.5px solid #5eead4; border-radius: 20px;
+      display: inline-block; padding: .3rem 1rem; margin: .4rem 0 .2rem;
+    }
+
+    
+    .section-tabs {
+      display: flex; gap: .35rem; margin-bottom: 1rem; flex-wrap: wrap;
+      background: #fff; padding: .3rem; border-radius: 14px;
+      box-shadow: var(--shadow); border: 1px solid var(--border);
+    }
+    .section-tab {
+      flex: 1; min-width: 100px; padding: .65rem .5rem; border: none;
+      background: transparent; border-radius: 10px; font-size: .82rem;
+      font-weight: 600; font-family: inherit; cursor: pointer;
+      color: var(--muted); transition: all .2s; text-align: center;
+    }
+    .section-tab.active {
+      background: linear-gradient(135deg, #0f766e, #14b8a6); color: #fff;
+      box-shadow: 0 3px 10px rgba(13,148,136,.35);
+    }
+    .section-panel { display: none; }
+    .section-panel.active { display: block; }
+
+    
+    .zoom-btns { display: inline-flex; gap: .25rem; align-items: center; }
+    .zoom-btns button {
+      width: 28px; height: 28px; border-radius: 8px; border: 1.5px solid #99f6e4;
+      background: #fff; color: #0f766e; font-weight: 700; font-size: .9rem;
+      cursor: pointer; font-family: inherit; line-height: 1;
+    }
+    .zoom-btns button:hover { background: #ccfbf1; }
+
+    
+    .donut-legend {
+      display: flex; flex-direction: column; gap: .35rem;
+      margin-top: .85rem; max-height: 320px; overflow-y: auto;
+      padding: .25rem .15rem .5rem; -webkit-overflow-scrolling: touch;
+    }
+    .donut-legend-item {
+      display: flex; align-items: flex-start; gap: .55rem;
+      padding: .45rem .55rem; border-radius: 10px;
+      background: #f8fafc; border: 1px solid #e2e8f0;
+    }
+    .donut-swatch {
+      width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; margin-top: .25rem;
+    }
+    .donut-legend-text {
+      font-size: .82rem; color: #134e4a; line-height: 1.35; word-break: break-word;
+    }
+    .donut-legend-text strong { font-weight: 700; display: block; }
+    .donut-legend-meta {
+      display: block; font-size: .75rem; font-weight: 600; color: #0f766e; margin-top: .15rem;
+    }
+
+    
+    .section-panel.active .card { padding: .45rem .3rem .65rem; }
+    .chart-box { padding: .45rem .2rem .55rem; margin-left: 0; margin-right: 0; }
+    .chart-scroll {
+      overflow-x: auto; overflow-y: hidden; width: 100%;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    
+    .table-search-wrap { margin: 0 0 .65rem; }
+    .table-search {
+      width: 100%; padding: .65rem .9rem; border: 1.5px solid #e2e8f0;
+      border-radius: 12px; font-size: .9rem; font-family: inherit;
+      background: #fff; color: var(--text);
+    }
+    .table-search:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(13,148,136,.18);
+    }
+    .table-title small { color: var(--muted); font-weight: 600; }
+
+    
+    .insight-block { margin: .85rem 0 1rem; }
+    .insight-title { font-size: .95rem; font-weight: 700; color: var(--primary-dark); margin: .8rem 0 .45rem; }
+    .insight-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .55rem; }
+    .insight-card {
+      background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 12px; padding: .7rem .75rem;
+    }
+    .insight-card .k { font-size: .72rem; color: var(--muted); font-weight: 600; }
+    .insight-card .v { font-size: 1.15rem; font-weight: 700; color: var(--primary-dark); margin-top: .15rem; }
+    .insight-card .s { font-size: .75rem; color: #0f766e; margin-top: .15rem; }
+    .chg-up { color: #b45309; }
+    .chg-down { color: #0f766e; }
+    .chg-flat { color: #64748b; }
+    .admin-bar { display:flex; gap:.5rem; flex-wrap:wrap; margin: .7rem 0 1rem; }
+
+    
+    .tabs { margin-bottom: .55rem; padding: .2rem; }
+    .section-tabs { margin-bottom: .55rem; padding: .2rem; }
+    .charts-grid { gap: .5rem; }
+    .summary-cards { gap: .4rem; margin: .4rem 0 .5rem; }
+    .insight-block { margin: .55rem 0 .7rem; }
+    body { padding: 0; }
+
+    
+    .insight-card.clickable {
+      cursor: pointer; text-align: right; font-family: inherit; width: 100%;
+      transition: transform .15s, box-shadow .15s, border-color .15s;
+    }
+    .insight-card.clickable:active, .insight-card.clickable:hover {
+      border-color: #0d9488; box-shadow: 0 4px 14px rgba(13,148,136,.2);
+      transform: translateY(-1px);
+    }
+    .avg-box {
+      margin-top: .55rem; padding: .65rem .8rem; border-radius: 12px;
+      background: linear-gradient(135deg, #ecfdf5, #ccfbf1);
+      border: 1.5px solid #5eead4; color: #0f766e; font-size: .85rem; font-weight: 600;
+      display: flex; flex-wrap: wrap; gap: .35rem .6rem; align-items: center; justify-content: space-between;
+    }
+    .avg-box strong {
+      font-size: 1.15rem; color: #134e4a; font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+    .pareto-detail {
+      margin-top: .7rem; padding: .65rem .5rem; border-radius: 14px;
+      background: #f8fafc; border: 1px solid #99f6e4;
+    }
+    .pareto-detail-head {
+      display: flex; flex-direction: column; gap: .2rem; margin-bottom: .35rem;
+      color: var(--primary-dark); font-size: .9rem;
+    }
+    .pareto-detail-head span { font-size: .78rem; color: var(--muted); font-weight: 600; }
+
+    footer { text-align: center; padding: 1.5rem 1rem; color: var(--muted); font-size: .75rem; }
+  </style>
 </head>
 <body>
-  <h1>جاري إصلاح الريبو...</h1>
-  <p class="ok">إذا ظهر هذا النص فالتحديث يعمل. انتظر ثوانٍ لرفع النسخة الكاملة.</p>
+  <header class="header">
+    <h1>تحليل صرف الأدوية</h1>
+    <p>نسخة تجريبية v6 · سنة كاملة · شهور متعددة · بحث أصناف</p>
+  </header>
+
+  <div class="container">
+    <div class="tabs">
+      <button class="tab-btn active" data-type="free">مجاني</button>
+      <button class="tab-btn" data-type="subsidized">مدعم</button>
+    </div>
+    <div class="section-tabs" id="sectionTabs">
+      <button type="button" class="section-tab active" data-section="upload">📤 الرفع</button>
+      <button type="button" class="section-tab" data-section="general">📊 السنة والشهور والأيام</button>
+      <button type="button" class="section-tab" data-section="item">🔎 صنف معين</button>
+    </div>
+    <div id="message" class="msg"></div>
+
+    <!-- Upload -->
+    <div class="section-panel active" id="sec-upload">
+    <div class="card">
+      <div class="card-title"><span class="icon">📤</span> رفع ملفات الصرف</div>
+      <div class="controls">
+        <div class="form-group">
+          <label>السنة</label>
+          <select id="uploadYear"><option value="2026" selected>2026</option><option value="2025">2025</option></select>
+        </div>
+        <div class="form-group">
+          <label>الشهر</label>
+          <select id="uploadMonth">
+                        <option value="">-- اختر --</option>
+            <option value="1">1 – يناير</option><option value="2">2 – فبراير</option><option value="3">3 – مارس</option>
+            <option value="4">4 – أبريل</option><option value="5">5 – مايو</option><option value="6">6 – يونيو</option>
+            <option value="7" selected>7 – يوليو</option><option value="8">8 – أغسطس</option><option value="9">9 – سبتمبر</option>
+            <option value="10">10 – أكتوبر</option><option value="11">11 – نوفمبر</option><option value="12">12 – ديسمبر</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>اليوم (فارغ = شهري)</label>
+          <select id="uploadDay"><option value="">-- ملف شهري --</option></select>
+        </div>
+        <div class="form-group">
+          <div class="file-label-row">
+            <span class="label-text">ملف Excel</span>
+            <span class="file-pill" id="fileLabel">لم يتم اختيار ملف</span>
+          </div>
+          <div class="file-wrap">
+            <div class="file-btn"><span>📁</span><span>اختيار ملف</span></div>
+            <input type="file" id="fileInput" accept=".xlsx,.xls" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" id="btnUpload" style="width:100%;min-height:46px">رفع الملف</button>
+        </div>
+      </div>
+      <div id="uploadSuccess" class="upload-success"></div>
+      <div id="uploadStatus" class="status-list"></div>
+    </div>
+    </div><!-- /sec-upload -->
+
+    <!-- General analysis -->
+    <div class="section-panel" id="sec-general">
+    <div class="card">
+      <div class="card-title"><span class="icon">📊</span> تحليل السنة والشهور والأيام</div>
+      <div class="mode-pills" id="gModePills">
+        <button type="button" class="mode-pill active" data-mode="month">شهر واحد</button>
+        <button type="button" class="mode-pill" data-mode="months">شهور متعددة</button>
+        <button type="button" class="mode-pill" data-mode="year">السنة كاملة</button>
+      </div>
+      <div class="controls" style="margin-bottom:.6rem">
+        <div class="form-group">
+          <label>السنة</label>
+          <select id="gYear"><option value="2026" selected>2026</option><option value="2025">2025</option></select>
+        </div>
+        <div class="form-group" id="gMonthWrap">
+          <label>الشهر</label>
+          <select id="gMonth">
+            <option value="">-- اختر --</option>
+            <option value="1">1 – يناير</option><option value="2">2 – فبراير</option><option value="3">3 – مارس</option>
+            <option value="4">4 – أبريل</option><option value="5">5 – مايو</option><option value="6">6 – يونيو</option>
+            <option value="7" selected>7 – يوليو</option><option value="8">8 – أغسطس</option><option value="9">9 – سبتمبر</option>
+            <option value="10">10 – أكتوبر</option><option value="11">11 – نوفمبر</option><option value="12">12 – ديسمبر</option>
+          </select>
+        </div>
+        <div class="form-group" id="gDayWrap">
+          <label>اليوم (اختياري)</label>
+          <select id="gDay"><option value="">-- الشهر كله --</option></select>
+        </div>
+      </div>
+      <div class="check-grid" id="gMonthsCheck"></div>
+      <div style="margin: .8rem 0 1rem">
+        <button class="btn btn-primary" id="btnGeneral" style="width:100%">عرض التحليل</button>
+      </div>
+      <div id="gSummary" class="summary-cards" style="display:none"></div>
+      <div id="gInsights"></div>
+      <div id="gCharts" class="charts-grid"></div>
+      <div id="gTable"></div>
+    </div>
+    </div><!-- /sec-general -->
+
+    <!-- Item analysis -->
+    <div class="section-panel" id="sec-item">
+    <div class="card">
+      <div class="card-title"><span class="icon">🔎</span> تحليل صنف معين</div>
+      <div class="mode-pills" id="iModePills">
+        <button type="button" class="mode-pill active" data-mode="month">شهر واحد</button>
+        <button type="button" class="mode-pill" data-mode="months">شهور متعددة</button>
+        <button type="button" class="mode-pill" data-mode="year">السنة كاملة</button>
+        <button type="button" class="mode-pill" data-mode="days">أيام متعددة</button>
+      </div>
+      <div class="controls" style="margin-bottom:.6rem">
+        <div class="form-group" style="grid-column: 1 / -1; max-width: 400px;">
+          <label>الصنف (ابحث بالاسم أو الكود)</label>
+          <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" class="search-input" id="itemSearch" placeholder="اكتب للبحث..." autocomplete="off" />
+            <button type="button" class="search-clear" id="itemClear" title="مسح" aria-label="مسح">×</button>
+            <input type="hidden" id="itemCode" value="" />
+            <div class="search-dropdown" id="itemDropdown"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>السنة</label>
+          <select id="itemYear"><option value="2026" selected>2026</option><option value="2025">2025</option></select>
+        </div>
+        <div class="form-group" id="iMonthWrap">
+          <label>الشهر</label>
+          <select id="itemMonth">
+                        <option value="">-- اختر --</option>
+            <option value="1">1 – يناير</option><option value="2">2 – فبراير</option><option value="3">3 – مارس</option>
+            <option value="4">4 – أبريل</option><option value="5">5 – مايو</option><option value="6">6 – يونيو</option>
+            <option value="7" selected>7 – يوليو</option><option value="8">8 – أغسطس</option><option value="9">9 – سبتمبر</option>
+            <option value="10">10 – أكتوبر</option><option value="11">11 – نوفمبر</option><option value="12">12 – ديسمبر</option>
+          </select>
+        </div>
+        <div class="form-group" id="iDayWrap">
+          <label>اليوم (اختياري)</label>
+          <select id="itemDay"><option value="">-- الشهر كله --</option></select>
+        </div>
+      </div>
+      <div class="check-grid" id="iMonthsCheck"></div>
+      <div class="check-grid" id="iDaysCheck"></div>
+      <div style="margin: .8rem 0 1rem">
+        <button class="btn btn-primary" id="btnItem" style="width:100%">عرض التفاصيل</button>
+      </div>
+      <div id="iResult"></div>
+    </div>
+    </div><!-- /sec-item -->
+  </div>
+
+  <footer>v6 · تبويبات الأقسام · كل الأصناف · IndexedDB</footer>
   <script src="app.js"></script>
 </body>
 </html>
